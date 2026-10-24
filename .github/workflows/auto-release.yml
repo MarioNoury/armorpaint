@@ -1,0 +1,66 @@
+# SINGLE SOURCE OF TRUTH: this workflow contains ZERO compile steps.
+# It calls the reusable build workflows as jobs:
+#   - build-windows.yml  (triggers on push too, for CI)
+#   - build-linux.yml    (triggers on push too, for CI)
+# A build breaks? Fix it once in the build workflow, release follows.
+#
+# Three ways this fires:
+#   1. Push a version tag  ->  proper versioned release (git tag v1.0.0 && git push origin v1.0.0)
+#   2. Weekly schedule     ->  automatic "nightly-YYYY-MM-DD" release (Mondays 05:00 UTC)
+#   3. "Run workflow"      ->  on-demand nightly release, same naming
+
+name: Release ArmorPaint (Windows + Fedora)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+  schedule:
+    - cron: '0 5 * * 1'   # every Monday, 05:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    # Reusable workflow call - no duplication, builds exactly like CI
+    uses: ./.github/workflows/build-windows.yml
+
+  build-linux:
+    # Reusable workflow call - gets the openssl-devel fix for free
+    uses: ./.github/workflows/build-linux.yml
+
+  release:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Collect builds
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ArmorPaint-*
+          merge-multiple: true
+          path: dist
+
+      - name: Compute release tag
+        id: rel
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            echo "name=ArmorPaint $GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            TAG="nightly-$(date +%Y-%m-%d)"
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            echo "name=ArmorPaint Nightly $TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.rel.outputs.tag }}
+          name: ${{ steps.rel.outputs.name }}
+          files: |
+            dist/*
+          generate_release_notes: true
