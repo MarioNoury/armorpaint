@@ -53,7 +53,7 @@ jobs:
           else
             TAG="nightly-$(date +%Y-%m-%d)"
             echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-            echo "name=ArmorPaint Nightly $TAG" >> "$GITHUB_OUTPUT"
+            echo "name=ArmorPaint $TAG" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish release
