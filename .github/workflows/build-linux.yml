@@ -12,9 +12,9 @@ name: Build ArmorPaint (Linux x64 - Fedora)
 on:
   workflow_call:       # allows release.yml to call this workflow as a job
   workflow_dispatch:
-  push:
-    branches:
-      - main
+  #push:
+  #  branches:
+  #    - main
 
 permissions:
   contents: read
